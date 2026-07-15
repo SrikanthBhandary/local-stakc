@@ -1,0 +1,1 @@
+{"errorMessage": "operation error DynamoDB: PutItem, https response error StatusCode: 400, RequestID: NG27KI7OBPEUMVHJ78FLUCIVCBVV4KQNSO5AEMVJF66Q9ASUAAJG, api error UnrecognizedClientException: The security token included in the request is invalid.", "errorType": "OperationError"}

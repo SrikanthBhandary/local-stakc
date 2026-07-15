@@ -1,0 +1,8 @@
+{
+  "body": "{\"name\":\"Test\",\"email\":\"test@example.com\",\"phone\":\"1234567890\",\"tour\":\"ladakh-high-passes\",\"dates\":\"August\"}",
+  "requestContext": {
+    "identity": {
+      "sourceIp": "1.2.3.4"
+    }
+  }
+}

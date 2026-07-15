@@ -1,5 +1,5 @@
-resource "aws_dynamodb_table" "items" {
-  name         = "items"
+resource "aws_dynamodb_table" "enquiries" {
+  name         = "enquiries"
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key = "id"
@@ -7,6 +7,49 @@ resource "aws_dynamodb_table" "items" {
   attribute {
     name = "id"
     type = "S"
+  }
+
+  # geohash is a fixed-precision string (e.g. 6 chars ~ 0.6km cells) computed
+  # by the writer Lambda from lat/lng. Query this index for the enquiry's own
+  # cell plus its 8 neighbor cells, then filter by exact haversine distance
+  # for a true proximity search.
+  attribute {
+    name = "geohash"
+    type = "S"
+  }
+
+  attribute {
+    name = "createdAt"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "geohash-index"
+    hash_key        = "geohash"
+    range_key       = "createdAt"
+    projection_type = "ALL"
+  }
+}
+
+# Fixed-window request counter keyed by "ip#<sourceIP>#<windowStart>".
+# The writer Lambda does an atomic ADD + ConditionExpression against this
+# table to decide whether a given IP is over its per-minute limit, so
+# throttling works even for public, unauthenticated callers where API
+# Gateway usage plans (which key off API keys) don't apply.
+resource "aws_dynamodb_table" "rate_limits" {
+  name         = "rate-limits"
+  billing_mode = "PAY_PER_REQUEST"
+
+  hash_key = "pk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = true
   }
 }
 
@@ -16,6 +59,10 @@ resource "aws_s3_bucket" "backup" {
 
 resource "aws_sqs_queue" "processor" {
   name = "processor-queue"
+}
+
+resource "aws_ses_email_identity" "sender" {
+  email = "hello@highpasses.example"
 }
 
 resource "aws_iam_role" "lambda_role" {
@@ -40,23 +87,55 @@ resource "aws_iam_role_policy" "lambda_policy" {
   name = "lambda-policy"
   role = aws_iam_role.lambda_role.id
 
+  # NOTE: writer/reader/processor currently share this one role. It's scoped
+  # to the specific actions each of them needs rather than "*:*", but if you
+  # want true least-privilege per function, split this into three roles later.
   policy = jsonencode({
 
     Version = "2012-10-17"
 
     Statement = [
-
       {
         Effect = "Allow"
-
         Action = [
-          "dynamodb:*",
-          "s3:*",
-          "sqs:*",
-          "logs:*"
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
         ]
-
+        Resource = [
+          aws_dynamodb_table.enquiries.arn,
+          "${aws_dynamodb_table.enquiries.arn}/index/*",
+          aws_dynamodb_table.rate_limits.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ]
+        Resource = "${aws_s3_bucket.backup.arn}/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "sqs:SendMessage"
+        Resource = aws_sqs_queue.processor.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ses:SendEmail"
         Resource = "*"
+        Condition = {
+          StringEquals = {
+            "ses:FromAddress" = aws_ses_email_identity.sender.email
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = "logs:*"
+        Resource = "arn:aws:logs:*:*:*"
       }
     ]
   })
@@ -75,8 +154,11 @@ resource "aws_lambda_function" "writer" {
 
   environment {
     variables = {
-      TABLE  = aws_dynamodb_table.items.name
-      BUCKET = aws_s3_bucket.backup.bucket
+      TABLE            = aws_dynamodb_table.enquiries.name
+      BUCKET           = aws_s3_bucket.backup.bucket
+      RATE_LIMIT_TABLE = aws_dynamodb_table.rate_limits.name
+      SES_FROM_ADDRESS = aws_ses_email_identity.sender.email
+      AWS_ENDPOINT_URL = "http://host.docker.internal:4566"
     }
   }
 }
@@ -94,7 +176,8 @@ resource "aws_lambda_function" "reader" {
 
   environment {
     variables = {
-      TABLE = aws_dynamodb_table.items.name
+      TABLE            = aws_dynamodb_table.enquiries.name
+      AWS_ENDPOINT_URL = "http://host.docker.internal:4566"
     }
   }
 }
@@ -112,7 +195,8 @@ resource "aws_lambda_function" "processor" {
 
   environment {
     variables = {
-      TABLE = aws_dynamodb_table.items.name
+      TABLE            = aws_dynamodb_table.enquiries.name
+      AWS_ENDPOINT_URL = "http://host.docker.internal:4566"
     }
   }
 }
@@ -158,11 +242,19 @@ resource "aws_sqs_queue_policy" "allow_s3" {
       {
         Effect = "Allow"
 
-        Principal = "*"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
 
         Action = "sqs:SendMessage"
 
         Resource = aws_sqs_queue.processor.arn
+
+        Condition = {
+          ArnEquals = {
+            "aws:SourceArn" = aws_s3_bucket.backup.arn
+          }
+        }
       }
     ]
   })
@@ -225,4 +317,21 @@ resource "aws_api_gateway_stage" "dev" {
   deployment_id = aws_api_gateway_deployment.deploy.id
 
   stage_name = "dev"
+}
+
+# Aggregate ceiling across all callers. This is a coarse safety net for the
+# whole stage/method — it won't stop one IP hammering the endpoint below this
+# limit, which is what the Lambda's own per-IP counter (rate_limits table) is
+# for. Keep both: this one protects the account/downstream services, the
+# Lambda one protects individual customers from each other.
+resource "aws_api_gateway_method_settings" "enquiry_throttle" {
+
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  stage_name  = aws_api_gateway_stage.dev.stage_name
+  method_path = "${aws_api_gateway_resource.items.path_part}/${aws_api_gateway_method.post.http_method}"
+
+  settings {
+    throttling_rate_limit  = 10
+    throttling_burst_limit = 20
+  }
 }
