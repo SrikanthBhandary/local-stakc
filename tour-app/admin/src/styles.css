@@ -1,0 +1,230 @@
+/* ---------- Global ---------- */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+    width: 100%;
+    height: 100%;
+    font-family: Inter, Arial, Helvetica, sans-serif;
+    background: #f3f6fb;
+}
+
+body {
+    color: #1e293b;
+}
+
+/* ---------- Login Page ---------- */
+
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: linear-gradient(
+        135deg,
+        #0f172a 0%,
+        #1e3a8a 100%
+    );
+
+    padding: 30px;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+
+    background: white;
+
+    padding: 40px;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.18);
+
+    animation: fadeIn .35s ease;
+}
+
+.login-card h1 {
+    font-size: 2rem;
+    color: #0f172a;
+    margin-bottom: 8px;
+}
+
+.login-card p {
+    color: #64748b;
+    margin-bottom: 30px;
+    line-height: 1.5;
+}
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #334155;
+}
+
+.form-group input {
+
+    width: 100%;
+
+    padding: 14px 16px;
+
+    border: 1px solid #cbd5e1;
+
+    border-radius: 10px;
+
+    font-size: 15px;
+
+    transition: .2s;
+}
+
+.form-group input:focus {
+
+    outline: none;
+
+    border-color: #2563eb;
+
+    box-shadow: 0 0 0 4px rgba(37,99,235,.15);
+}
+
+button {
+
+    width: 100%;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #2563eb;
+
+    color: white;
+
+    font-size: 16px;
+
+    font-weight: 600;
+
+    padding: 14px;
+
+    cursor: pointer;
+
+    transition: .25s;
+}
+
+button:hover {
+
+    background: #1d4ed8;
+
+    transform: translateY(-1px);
+
+}
+
+button:active {
+
+    transform: scale(.98);
+
+}
+
+button:disabled {
+
+    opacity: .6;
+
+    cursor: not-allowed;
+
+}
+
+.error-message {
+
+    margin-top: 18px;
+
+    padding: 12px;
+
+    background: #fee2e2;
+
+    color: #b91c1c;
+
+    border-radius: 8px;
+
+    border: 1px solid #fecaca;
+}
+
+/* ---------- Spinner ---------- */
+
+.spinner-container {
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    align-items: center;
+
+    height: 100vh;
+
+    gap: 20px;
+}
+
+.spinner {
+
+    width: 44px;
+
+    height: 44px;
+
+    border: 5px solid #dbeafe;
+
+    border-top: 5px solid #2563eb;
+
+    border-radius: 50%;
+
+    animation: spin .8s linear infinite;
+}
+
+/* ---------- Animations ---------- */
+
+@keyframes spin {
+
+    from {
+
+        transform: rotate(0deg);
+
+    }
+
+    to {
+
+        transform: rotate(360deg);
+
+    }
+
+}
+
+@keyframes fadeIn {
+
+    from {
+
+        opacity: 0;
+
+        transform: translateY(20px);
+
+    }
+
+    to {
+
+        opacity: 1;
+
+        transform: translateY(0);
+
+    }
+
+}

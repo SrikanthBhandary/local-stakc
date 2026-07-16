@@ -1,8 +1,9 @@
-package reader
+package main
 
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -12,45 +13,168 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-type Item struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Price     int    `json:"price"`
-	Processed bool   `json:"processed"`
+type Enquiry struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Email     string  `json:"email"`
+	Phone     string  `json:"phone"`
+	Travelers int     `json:"travelers"`
+	Tour      string  `json:"tour"`
+	Dates     string  `json:"dates"`
+	Message   string  `json:"message"`
+	Lat       float64 `json:"lat,omitempty"`
+	Lng       float64 `json:"lng,omitempty"`
+	Geohash   string  `json:"geohash,omitempty"`
+	Status    string  `json:"status"`
+	CreatedAt string  `json:"createdAt"`
+	EmailSent bool    `json:"emailSent"`
 }
 
-func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+func jsonResponse(
+	status int,
+	body interface{},
+) (events.APIGatewayProxyResponse, error) {
 
-	cfg, _ := config.LoadDefaultConfig(ctx)
+	data, err := json.Marshal(body)
 
-	db := dynamodb.NewFromConfig(cfg)
-
-	table := os.Getenv("TABLE")
-
-	out, _ := db.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(table),
-		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{
-				Value: req.PathParameters["id"],
-			},
-		},
-	})
-
-	var item Item
-
-	attributevalue.UnmarshalMap(out.Item, &item)
-
-	data, _ := json.Marshal(item)
+	if err != nil {
+		return events.APIGatewayProxyResponse{
+			StatusCode: 500,
+			Body:       `{"error":"json marshal failed"}`,
+		}, nil
+	}
 
 	return events.APIGatewayProxyResponse{
-		StatusCode: 200,
-		Body:       string(data),
+
+		StatusCode: status,
+
+		Headers: map[string]string{
+			"Content-Type":                "application/json",
+			"Access-Control-Allow-Origin": "*",
+		},
+
+		Body: string(data),
 	}, nil
 }
 
+func handler(
+	ctx context.Context,
+	req events.APIGatewayProxyRequest,
+) (events.APIGatewayProxyResponse, error) {
+
+	table := os.Getenv("TABLE")
+
+	cfg, err := config.LoadDefaultConfig(ctx)
+
+	if err != nil {
+
+		log.Println("AWS config error:", err)
+
+		return jsonResponse(
+			500,
+			map[string]string{
+				"error": "aws config failed",
+			},
+		)
+	}
+
+	// MiniStack / LocalStack support
+	endpoint := os.Getenv("AWS_ENDPOINT_URL")
+
+	var dynamoOptions []func(*dynamodb.Options)
+
+	if endpoint != "" {
+
+		dynamoOptions = append(
+			dynamoOptions,
+			func(o *dynamodb.Options) {
+
+				o.BaseEndpoint =
+					aws.String(endpoint)
+
+			},
+		)
+	}
+
+	db := dynamodb.NewFromConfig(
+		cfg,
+		dynamoOptions...,
+	)
+
+	// Optional: see who called the API
+	// Cognito claims are injected by API Gateway
+	if req.RequestContext.Authorizer != nil {
+
+		log.Printf(
+			"authorizer: %+v",
+			req.RequestContext.Authorizer,
+		)
+
+	}
+
+	result, err := db.Scan(
+		ctx,
+		&dynamodb.ScanInput{
+
+			TableName: aws.String(table),
+		},
+	)
+
+	if err != nil {
+
+		log.Println(
+			"DynamoDB scan failed:",
+			err,
+		)
+
+		return jsonResponse(
+			500,
+			map[string]string{
+				"error": "database error",
+			},
+		)
+
+	}
+
+	var enquiries []Enquiry
+
+	err = attributevalue.UnmarshalListOfMaps(
+		result.Items,
+		&enquiries,
+	)
+
+	if err != nil {
+
+		log.Println(
+			"Unmarshal failed:",
+			err,
+		)
+
+		return jsonResponse(
+			500,
+			map[string]string{
+				"error": "decode failed",
+			},
+		)
+
+	}
+
+	return jsonResponse(
+		200,
+		map[string]interface{}{
+
+			"count": len(enquiries),
+
+			"items": enquiries,
+		},
+	)
+
+}
+
 func main() {
+
 	lambda.Start(handler)
+
 }

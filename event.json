@@ -1,0 +1,11 @@
+{
+  "httpMethod":"GET",
+  "path":"/admin/enquiries",
+  "requestContext":{
+    "authorizer":{
+      "claims":{
+        "email":"admin@highpasses.com"
+      }
+    }
+  }
+}

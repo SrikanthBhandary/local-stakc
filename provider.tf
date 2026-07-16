@@ -31,5 +31,8 @@ provider "aws" {
     sts         = "http://localhost:4566"
     logs        = "http://localhost:4566"
     ses         = "http://localhost:4566"
+    cognitoidentityprovider = "http://localhost:4566"
+    
+
   }
 }
