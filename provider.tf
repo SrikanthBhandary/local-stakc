@@ -1,10 +1,11 @@
 terraform {
-  
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 6.0"
+    }
+    random = {
+      source = "hashicorp/random"
     }
   }
 }
@@ -32,7 +33,6 @@ provider "aws" {
     logs        = "http://localhost:4566"
     ses         = "http://localhost:4566"
     cognitoidentityprovider = "http://localhost:4566"
-    
-
+    secretsmanager = "http://localhost:4566"
   }
 }
