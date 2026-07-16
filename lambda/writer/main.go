@@ -191,6 +191,18 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 		return jsonResponse(400, map[string]string{"error": err.Error()}, nil), nil
 	}
 
+	isDup, dupErr := checkDuplicateSubmission(ctx, db, rateLimitTable, input.Email, input.Tour)
+	if dupErr != nil {
+		log.Printf("duplicate check failed: %v", dupErr)
+		// Fail open — an infra hiccup here shouldn't block a genuine enquiry.
+	} else if isDup {
+		log.Printf("duplicate submission for email=%s tour=%s within cooldown window", input.Email, input.Tour)
+		return jsonResponse(200, map[string]string{
+			"status":  "already_received",
+			"message": "We've already got an enquiry from you for this route and will be in touch shortly.",
+		}, nil), nil
+	}
+
 	id := input.ID
 	if strings.TrimSpace(id) == "" {
 		id = newID()

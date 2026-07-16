@@ -44,9 +44,32 @@ function EnquiryForm({ tours, selectedTourId, onSelectedTourChange }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('Request failed');
-      setStatus({ text: "Enquiry sent — we'll be in touch within 24 hours.", error: false });
-      setForm(initialForm);
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response (e.g. a gateway-level error page) — fall through
+        // to the status-code handling below with data left null.
+      }
+
+      if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After');
+        const wait = retryAfter ? `Please wait about ${retryAfter} seconds and try again.` : 'Please try again shortly.';
+        setStatus({ text: `You're submitting a bit fast — ${wait}`, error: true });
+      } else if (res.ok && data?.status === 'already_received') {
+        setStatus({ text: data.message || "We've already got your enquiry for this route and will be in touch shortly.", error: false });
+        setForm(initialForm);
+      } else if (res.ok) {
+        setStatus({ text: "Enquiry sent — we'll be in touch within 24 hours.", error: false });
+        setForm(initialForm);
+      } else if (data?.error) {
+        // Validation errors (400) come back with a specific, useful message —
+        // show it directly instead of the generic fallback.
+        setStatus({ text: data.error, error: true });
+      } else {
+        throw new Error(`Request failed with status ${res.status}`);
+      }
     } catch (err) {
       setStatus({ text: FALLBACK_MESSAGE, error: true });
     } finally {

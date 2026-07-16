@@ -1,1 +1,1 @@
-{"statusCode": 429, "headers": {"Content-Type": "application/json", "Retry-After": "60"}, "multiValueHeaders": null, "body": "{\"error\":\"Too many requests. Please try again shortly.\"}"}
+{"statusCode": 200, "headers": {"Content-Type": "application/json"}, "multiValueHeaders": null, "body": "{\"message\":\"We've already got an enquiry from you for this route and will be in touch shortly.\",\"status\":\"already_received\"}"}
