@@ -34,5 +34,6 @@ provider "aws" {
     ses         = "http://localhost:4566"
     cognitoidentityprovider = "http://localhost:4566"
     secretsmanager = "http://localhost:4566"
+    cloudfront = "http://localhost:4566"
   }
 }
