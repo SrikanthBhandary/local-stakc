@@ -2,6 +2,10 @@
 
 High Passes is a serverless travel enquiry platform built on AWS services and designed to run entirely on **MiniStack** for local development. The application demonstrates a modern event-driven architecture using API Gateway, Lambda, DynamoDB, Cognito, S3, SQS, SES, and Terraform/OpenTofu.
 
+![image](./DOCS/images/public.png)
+![image](./DOCS/images/admin.png)
+![image](./DOCS/images/dashboard.png)
+
 ---
 
 # Architecture
