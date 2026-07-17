@@ -15,6 +15,7 @@ resource "aws_lambda_function" "writer" {
       RATE_LIMIT_TABLE = aws_dynamodb_table.rate_limits.name
       SES_FROM_ADDRESS = aws_ses_email_identity.sender.email
       AWS_ENDPOINT_URL = "http://host.docker.internal:4566" # Configured for LocalStack
+      QUEUE_URL = "http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/processor-queue"
     }
   }
 }

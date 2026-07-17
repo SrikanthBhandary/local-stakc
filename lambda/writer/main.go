@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/ses"
 	sestypes "github.com/aws/aws-sdk-go-v2/service/ses/types"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 )
 
 const geohashPrecision = 6 // ~0.6km cells; adjust for coarser/finer proximity buckets
@@ -270,10 +271,39 @@ func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.API
 			log.Printf("failed to mark emailSent for %s: %v", id, uerr)
 		}
 	}
+	// TODO: Dirtyway to handle everything in one place.
+	// Lets enqueue the dynambo table id in the sqs
+	// and processor lambda will handle the creation of the pdf
+	var sqsOpts []func(*sqs.Options)
+
+	if endpointOverride != "" {
+		sqsOpts = append(sqsOpts, func(o *sqs.Options) {
+			o.BaseEndpoint = aws.String(endpointOverride)
+		})
+	}
+
+	sqsClient := sqs.NewFromConfig(cfg, sqsOpts...)
+	queueURL := os.Getenv("QUEUE_URL")
+
+	payload := map[string]string{
+		"id": id,
+	}
+
+	body, _ := json.Marshal(payload)
+
+	_, err = sqsClient.SendMessage(ctx, &sqs.SendMessageInput{
+		QueueUrl:    aws.String(queueURL),
+		MessageBody: aws.String(string(body)),
+	})
+
+	if err != nil {
+		log.Printf("failed to enqueue job: %v", err)
+	}
 
 	return jsonResponse(200, map[string]string{"id": id, "status": "pending"}, nil), nil
 }
 
 func main() {
+	log.SetOutput(os.Stdout)
 	lambda.Start(handler)
 }

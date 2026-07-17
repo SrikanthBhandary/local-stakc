@@ -2,6 +2,7 @@ BINARY=bootstrap
 ZIP=$(notdir $(CURDIR)).zip
 
 build:
+	go mod tidy
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o $(BINARY) .
 
 zip: build
