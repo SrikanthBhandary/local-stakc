@@ -8,6 +8,6 @@ export default defineConfig({
     react()
   ],
 
-  base: "/item-backup/admin/"
+  base: "/www.highpasses.com/admin/"
 
 })

@@ -4,15 +4,16 @@ const config = {
 
     cognitoEndpoint: "http://localhost:4566",
 
-    userPoolId: "us-east-1_zxGiQQRUq",
+    userPoolId: "us-east-1_JMPuvVPrc",
 
-    clientId: "eEohzNgJ3E4Gxoi1gidEaAfNIU",
+    clientId: "ldDt76tOVCNyLPpgcdhIHsh6Lf",
 
-    
-    apiGateway: "http://localhost:4566/restapis/5fa383b9/dev/_user_request_/items"
+    // change the gateway id in the url
+    apiGateway: "http://localhost:4566/restapis/8fa35a50/dev/_user_request_/items"
 
 };
 
 export default config;
+// change the gateway id in the url
 export const API_BASE_URL =
-  "http://localhost:4566/restapis/5fa383b9/dev/_user_request_";
+  "http://localhost:4566/restapis/8fa35a50/dev/_user_request_";
